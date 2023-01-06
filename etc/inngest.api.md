@@ -4,12 +4,15 @@
 
 ```ts
 
+import { z } from 'zod';
+
 // @public
 export interface ClientOptions {
     eventKey?: string;
     fetch?: typeof fetch;
     inngestBaseUrl?: string;
     name: string;
+    schemas: Record<string, EventSchema> | null;
 }
 
 // Warning: (ae-forgotten-export) The symbol "EventName" needs to be exported by the entry point index.d.ts
@@ -34,6 +37,21 @@ export interface EventPayload {
 }
 
 // @public
+export type EventPayloads<T extends Record<string, EventSchema>> = {
+    [K in keyof T & string]: {
+        name: K;
+        data: InferZodOrObject<T[K]["data"]>;
+        user?: InferZodOrObject<T[K]["user"]>;
+    };
+};
+
+// @public
+export type EventSchema = {
+    data: z.AnyZodObject | Record<string, any>;
+    user?: z.AnyZodObject | Record<string, any>;
+};
+
+// @public
 export interface FunctionOptions {
     id?: string;
     idempotency?: string;
@@ -46,8 +64,11 @@ export interface FunctionOptions {
 }
 
 // @public
-export class Inngest<Events extends Record<string, EventPayload>> {
-    constructor({ name, eventKey, inngestBaseUrl, fetch, }: ClientOptions);
+export type InferZodOrObject<T> = T extends z.AnyZodObject ? z.infer<T> : T;
+
+// @public
+export class Inngest<T extends ClientOptions, Events extends EventPayloads<NonNullable<T["schemas"]>>> {
+    constructor({ name, eventKey, inngestBaseUrl, fetch, schemas, }: T);
     createFunction<Event extends keyof Events, Name extends string, Fn extends SingleStepFn<Events[Event], Name, "step">>(
     name: Name,
     event: Event,
@@ -74,6 +95,8 @@ export class Inngest<Events extends Record<string, EventPayload>> {
     fn: Fn): InngestFunction<Events>;
     readonly inngestBaseUrl: URL;
     readonly name: string;
+    // (undocumented)
+    readonly schemas: Record<string, EventSchema>;
     // Warning: (ae-forgotten-export) The symbol "SingleOrArray" needs to be exported by the entry point index.d.ts
     // Warning: (ae-forgotten-export) The symbol "PartialK" needs to be exported by the entry point index.d.ts
     send<Event extends keyof Events>(name: Event, payload: SingleOrArray<PartialK<Omit<Events[Event], "name" | "v">, "ts">>): Promise<void>;
@@ -89,7 +112,7 @@ export class Inngest<Events extends Record<string, EventPayload>> {
 export class InngestCommHandler<H extends Handler, TransformedRes> {
     constructor(
     frameworkName: string,
-    appNameOrInngest: string | Inngest<any>,
+    appNameOrInngest: string | Inngest<any, any>,
     functions: InngestFunction<any>[], { inngestRegisterUrl, fetch, landingPage, signingKey, serveHost, servePath, }: RegisterOptions | undefined,
     handler: H,
     transformRes: (actionRes: ActionResponse, ...args: Parameters<H>) => TransformedRes);
@@ -157,7 +180,7 @@ export interface RegisterOptions {
 
 // @public
 export type ServeHandler = (
-nameOrInngest: string | Inngest<any>,
+nameOrInngest: string | Inngest<any, any>,
 functions: InngestFunction<any>[],
 opts?: RegisterOptions) => any;
 

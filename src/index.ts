@@ -9,7 +9,10 @@ export {
 export type {
   ClientOptions,
   EventPayload,
+  EventPayloads,
+  EventSchema,
   FunctionOptions,
+  InferZodOrObject,
   MultiStepFn,
   MultiStepFnArgs,
   RegisterOptions,
