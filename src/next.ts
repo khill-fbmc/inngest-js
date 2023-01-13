@@ -37,6 +37,7 @@ export const serve: ServeHandler = (nameOrInngest, fns, opts) => {
               env,
               url,
               isProduction,
+              deployId: req.query[queryKeys.DeployId]?.toString(),
             };
           }
         },
@@ -45,6 +46,7 @@ export const serve: ServeHandler = (nameOrInngest, fns, opts) => {
             return {
               data: req.body as Record<string, any>,
               fnId: req.query[queryKeys.FnId] as string,
+              stepId: req.query[queryKeys.StepId] as string,
               env,
               isProduction,
               url,

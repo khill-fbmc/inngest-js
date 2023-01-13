@@ -5,8 +5,9 @@ import { devServerAvailable, devServerUrl } from "../helpers/devserver";
 import { strBoolean } from "../helpers/scalar";
 import type { MaybePromise } from "../helpers/types";
 import { landing } from "../landing";
-import type {
+import {
   FunctionConfig,
+  incomingOpSchema,
   IntrospectRequest,
   RegisterOptions,
   RegisterRequest,
@@ -432,7 +433,11 @@ export class InngestCommHandler<H extends Handler, TransformedRes> {
       if (runRes) {
         this.upsertSigningKeyFromEnv(runRes.env);
 
-        const stepRes = await this.runStep(runRes.fnId, "step", runRes.data);
+        const stepRes = await this.runStep(
+          runRes.fnId,
+          runRes.stepId,
+          runRes.data
+        );
 
         if (stepRes.status === 500) {
           return {
@@ -504,7 +509,8 @@ export class InngestCommHandler<H extends Handler, TransformedRes> {
 
         const { status, message } = await this.register(
           this.reqUrl(registerRes.url),
-          registerRes.env[envKeys.DevServerUrl]
+          registerRes.env[envKeys.DevServerUrl],
+          registerRes.deployId
         );
 
         return {
@@ -536,7 +542,7 @@ export class InngestCommHandler<H extends Handler, TransformedRes> {
 
   protected async runStep(
     functionId: string,
-    stepId: string,
+    stepId: string | null,
     data: any
   ): Promise<StepRunResponse> {
     try {
@@ -545,14 +551,37 @@ export class InngestCommHandler<H extends Handler, TransformedRes> {
         throw new Error(`Could not find function with ID "${functionId}"`);
       }
 
-      const { event, steps } = z
+      const { event, steps, ctx } = z
         .object({
           event: z.object({}).passthrough(),
-          steps: z.object({}).passthrough().optional().nullable(),
+          steps: z.record(incomingOpSchema.passthrough()).optional().nullable(),
+          ctx: z
+            .object({
+              stack: z
+                .object({
+                  order: z.array(z.string()),
+                  progress: z.number(),
+                })
+                .passthrough()
+                .optional()
+                .nullable(),
+            })
+            .optional()
+            .nullable(),
         })
         .parse(data);
 
-      const ret = await fn["runFn"]({ event }, steps || {});
+      const opStack =
+        ctx?.stack?.order.slice(0, ctx.stack.progress).map((opId) => {
+          const step = steps?.[opId];
+          if (!step) {
+            throw new Error(`Could not find step with ID "${opId}"`);
+          }
+
+          return step;
+        }) ?? [];
+
+      const ret = await fn["runFn"]({ event }, opStack, stepId || null);
       const isOp = ret[0];
 
       if (isOp) {
@@ -638,7 +667,8 @@ export class InngestCommHandler<H extends Handler, TransformedRes> {
 
   protected async register(
     url: URL,
-    devServerHost: string | undefined
+    devServerHost: string | undefined,
+    deployId?: string | undefined | null
   ): Promise<{ status: number; message: string }> {
     const body = this.registerBody(url);
 
@@ -653,6 +683,10 @@ export class InngestCommHandler<H extends Handler, TransformedRes> {
       if (hasDevServer) {
         registerURL = devServerUrl(devServerHost, "/fn/register");
       }
+    }
+
+    if (deployId) {
+      registerURL.searchParams.set("deployId", deployId);
     }
 
     try {
@@ -785,10 +819,12 @@ type HandlerAction =
       env: Record<string, string | undefined>;
       url: URL;
       isProduction: boolean;
+      deployId?: null | string;
     }
   | {
       action: "run";
       fnId: string;
+      stepId: string | null;
       data: Record<string, any>;
       env: Record<string, string | undefined>;
       isProduction: boolean;

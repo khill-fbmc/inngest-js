@@ -52,6 +52,7 @@ export const serve: ServeHandler = (nameOrInngest, fns, opts) => {
               env,
               url,
               isProduction,
+              deployId: url.searchParams.get(queryKeys.DeployId),
             };
           }
         },
@@ -59,6 +60,7 @@ export const serve: ServeHandler = (nameOrInngest, fns, opts) => {
           if (req.method === "POST") {
             return {
               fnId: url.searchParams.get(queryKeys.FnId) as string,
+              stepId: url.searchParams.get(queryKeys.StepId) as string,
               data: (await req.json()) as Record<string, any>,
               env,
               isProduction,
