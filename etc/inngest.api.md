@@ -13,7 +13,7 @@ export interface ClientOptions {
     fetch?: typeof fetch;
     inngestBaseUrl?: string;
     name: string;
-    schemas: Record<string, EventSchema> | null;
+    schemas?: EventSchemas;
 }
 
 // @public
@@ -26,19 +26,19 @@ export interface EventPayload {
 }
 
 // @public
-export type EventPayloads<T extends Record<string, EventSchema>> = {
-    [K in keyof T & string]: {
+export type EventPayloads<T extends EventSchemas> = {
+    [K in keyof InferZodOrObject<T> & string]: {
         name: K;
-        data: InferZodOrObject<T[K]["data"]>;
-        user?: InferZodOrObject<T[K]["user"]>;
+        data: InferZodOrObject<T>[K]["data"];
+        user?: InferZodOrObject<T>[K]["user"];
     };
 };
 
 // @public
-export type EventSchema = {
-    data: z.AnyZodObject | Record<string, any>;
-    user?: z.AnyZodObject | Record<string, any>;
-};
+export type EventSchemas = Record<string, {
+    data: z.AnyZodObject;
+    user?: z.AnyZodObject;
+}>;
 
 // @public
 export interface FunctionOptions {
@@ -55,11 +55,13 @@ export interface FunctionOptions {
 }
 
 // @public
-export type InferZodOrObject<T> = T extends z.AnyZodObject ? z.infer<T> : T;
+export type InferZodOrObject<T> = T extends z.ZodTypeAny ? z.infer<T> : T extends object ? {
+    [K in keyof T]: InferZodOrObject<T[K]>;
+} : T;
 
 // @public
 export class Inngest<T extends ClientOptions, Events extends EventPayloads<NonNullable<T["schemas"]>>> {
-    constructor({ name, eventKey, inngestBaseUrl, fetch, schemas, }: T);
+    constructor({ name, eventKey, inngestBaseUrl, fetch, }: T);
     // Warning: (ae-forgotten-export) The symbol "TriggerOptions" needs to be exported by the entry point index.d.ts
     // Warning: (ae-forgotten-export) The symbol "Handler" needs to be exported by the entry point index.d.ts
     // Warning: (ae-forgotten-export) The symbol "InngestFunction" needs to be exported by the entry point index.d.ts
@@ -70,8 +72,6 @@ export class Inngest<T extends ClientOptions, Events extends EventPayloads<NonNu
     } ? Trigger["event"] : string, NameOrOpts extends FunctionOptions ? NameOrOpts : never>): InngestFunction<Events>;
     readonly inngestBaseUrl: URL;
     readonly name: string;
-    // (undocumented)
-    readonly schemas: Record<string, EventSchema>;
     // Warning: (ae-forgotten-export) The symbol "SingleOrArray" needs to be exported by the entry point index.d.ts
     // Warning: (ae-forgotten-export) The symbol "PartialK" needs to be exported by the entry point index.d.ts
     send<Event extends keyof Events>(name: Event, payload: SingleOrArray<PartialK<Omit<Events[Event], "name" | "v">, "ts">>): Promise<void>;
