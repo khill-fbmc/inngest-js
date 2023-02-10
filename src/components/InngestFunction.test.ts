@@ -4,6 +4,7 @@ import { OpStack, StepOpCode } from "../types";
 import { Inngest } from "./Inngest";
 import { InngestFunction } from "./InngestFunction";
 import { UnhashedOp, _internals } from "./InngestStepTools";
+import { Schemas } from "./Schemas";
 
 type TestEvents = {
   foo: { name: "foo"; data: { foo: string } };
@@ -11,9 +12,10 @@ type TestEvents = {
   baz: { name: "baz"; data: { baz: string } };
 };
 
-const inngest = new Inngest<TestEvents>({
+const inngest = new Inngest({
   name: "test",
   eventKey: "event-key-123",
+  schemas: new Schemas().fromTypes<TestEvents>(),
 });
 
 describe("#generateID", () => {
@@ -227,7 +229,7 @@ describe("runFn", () => {
             expect.objectContaining({
               id: A,
               name: "A",
-              op: StepOpCode.StepPlanned,
+              op: StepOpCode.RunStep,
               data: "A",
             }),
           ],
@@ -264,7 +266,7 @@ describe("runFn", () => {
             expect.objectContaining({
               id: B,
               name: "B",
-              op: StepOpCode.StepPlanned,
+              op: StepOpCode.RunStep,
               data: "B",
             }),
           ],
@@ -281,7 +283,7 @@ describe("runFn", () => {
               data: "B",
             },
           ],
-          expectedReturn: ["multi-discovery", []],
+          expectedReturn: ["multi-complete", undefined],
         },
       })
     );
@@ -347,7 +349,7 @@ describe("runFn", () => {
             expect.objectContaining({
               id: A,
               name: "A",
-              op: StepOpCode.StepPlanned,
+              op: StepOpCode.RunStep,
               data: "A",
             }),
           ],
@@ -374,7 +376,7 @@ describe("runFn", () => {
             expect.objectContaining({
               id: B,
               name: "B",
-              op: StepOpCode.StepPlanned,
+              op: StepOpCode.RunStep,
               data: "B",
             }),
           ],
@@ -391,7 +393,7 @@ describe("runFn", () => {
               data: "B",
             },
           ],
-          expectedReturn: ["multi-discovery", []],
+          expectedReturn: ["multi-complete", undefined],
         },
       })
     );
@@ -445,7 +447,7 @@ describe("runFn", () => {
             expect.objectContaining({
               id: B,
               name: "B",
-              op: StepOpCode.StepPlanned,
+              op: StepOpCode.RunStep,
               data: "B",
             }),
           ],
@@ -469,7 +471,7 @@ describe("runFn", () => {
             expect.objectContaining({
               id: A,
               name: "A",
-              op: StepOpCode.StepPlanned,
+              op: StepOpCode.RunStep,
               data: "A",
             }),
           ],
@@ -516,7 +518,7 @@ describe("runFn", () => {
             expect.objectContaining({
               id: C,
               name: "C",
-              op: StepOpCode.StepPlanned,
+              op: StepOpCode.RunStep,
               data: "C",
             }),
           ],
@@ -538,7 +540,7 @@ describe("runFn", () => {
               data: "C",
             },
           ],
-          expectedReturn: ["multi-discovery", []],
+          expectedReturn: ["multi-complete", undefined],
         },
       })
     );
@@ -599,7 +601,7 @@ describe("runFn", () => {
             expect.objectContaining({
               id: B,
               name: "B",
-              op: StepOpCode.StepPlanned,
+              op: StepOpCode.RunStep,
               data: "B",
             }),
           ],
@@ -632,7 +634,7 @@ describe("runFn", () => {
             expect.objectContaining({
               id: A,
               name: "A",
-              op: StepOpCode.StepPlanned,
+              op: StepOpCode.RunStep,
               data: "A",
             }),
           ],
@@ -666,7 +668,7 @@ describe("runFn", () => {
             expect.objectContaining({
               id: BWins,
               name: "B wins",
-              op: StepOpCode.StepPlanned,
+              op: StepOpCode.RunStep,
               data: "B wins",
             }),
           ],
@@ -688,7 +690,7 @@ describe("runFn", () => {
           "name",
           "foo",
           async ({ tools: { run } }) => {
-            await Promise.all([
+            return Promise.all([
               run("A", A),
               run("B", B).catch(() => run("B failed", BFailed)),
             ]);
@@ -728,7 +730,7 @@ describe("runFn", () => {
             expect.objectContaining({
               id: A,
               name: "A",
-              op: StepOpCode.StepPlanned,
+              op: StepOpCode.RunStep,
               data: "A",
             }),
           ],
@@ -747,7 +749,7 @@ describe("runFn", () => {
             expect.objectContaining({
               id: B,
               name: "B",
-              op: StepOpCode.StepPlanned,
+              op: StepOpCode.RunStep,
               error: "B",
             }),
           ],
@@ -782,7 +784,7 @@ describe("runFn", () => {
             expect.objectContaining({
               id: BFailed,
               name: "B failed",
-              op: StepOpCode.StepPlanned,
+              op: StepOpCode.RunStep,
               data: "B failed",
             }),
           ],
@@ -795,7 +797,7 @@ describe("runFn", () => {
             { id: B, error: "B" },
             { id: BFailed, data: "B failed" },
           ],
-          expectedReturn: ["multi-discovery", []],
+          expectedReturn: ["multi-complete", ["A", "B failed"]],
         },
       })
     );
